@@ -1,0 +1,531 @@
+<html lang="en">
+
+<head>
+    <title>Health Facilities in South Africa</title>
+    <script src="https://cesium.com/downloads/cesiumjs/releases/1.107/Build/Cesium/Cesium.js"></script>
+    <link href="https://cesium.com/downloads/cesiumjs/releases/1.107/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+    <script src="https://unpkg.com/@esri/arcgis-rest-request@4.0.0/dist/bundled/request.umd.js"></script>
+    <script src="https://unpkg.com/@esri/arcgis-rest-routing@4.0.0/dist/bundled/routing.umd.js"></script>
+        <script src="https://cdn.lordicon.com/bhenfmcm.js"></script>
+    <style>html {
+      height: 100%
+  }
+  
+  body {
+      background: #000;
+      color: #eee;
+      font-family: sans-serif;
+      font-size: 9pt;
+      padding: 0;
+      margin: 0;
+      /* width: 100%;
+      height: 100%;
+      overflow: hidden */
+  }
+  
+
+  #loadingOverlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      opacity: .9;
+      width: 100%;
+      height: 100%;
+      display: none
+  }
+  
+  #loadingOverlay h1 {
+      text-align: center;
+      position: relative;
+      top: 50%;
+      margin-top: -.5em
+  }
+  
+  .sandcastle-loading #loadingOverlay {
+      display: block
+  }
+  
+  .sandcastle-loading #toolbar {
+      display: none
+  }
+  
+  #toolbar {
+      margin: 5px;
+      padding: 2px 5px;
+      position: absolute
+  }
+  
+  .infoPanel {
+      background: rgba(42, 42, 42, .8);
+      padding: 4px;
+      border: 1px solid #444;
+      border-radius: 4px
+  }
+        #toolbar {
+        background: rgba(42, 42, 42, 0.8);
+        padding: 4px;
+        border-radius: 4px;
+      }
+      #toolbar input {
+        vertical-align: middle;
+        padding-top: 2px;
+        padding-bottom: 2px;
+      }
+      #toolbar .header {
+        font-weight: bold;
+      }
+      html,
+      body,
+      #cesiumContainer {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+       /* // overflow: hidden; */
+      } 
+    </style>
+
+</head>
+<body>
+  <!-- <div  class="sidebar"> -->
+    <div id="cesiumContainer"></div>
+    <div id="loadingOverlay"><h1>Loading...</h1></div>
+    <lord-icon
+    src="https://cdn.lordicon.com/mdksbrtj.json"
+    trigger="loop"
+    delay="2000"
+    colors="primary:#ffffff,secondary:#e83a30"
+    style="width:90px;height:90px">
+</lord-icon>
+  
+<div>
+    <div id="toolbar" style="width: 30%;">
+      <table>
+        <h3>Visualization of healthcare facilities in South Africa </h3>
+        <strong>About this project:</strong>
+        <p>The goal is to transform <a href="https://dsfsi.github.io/healthfacilitymap/" target="blank" style="color: aqua;">health facilities'</a> data visualized using Google maps API - into a 3D mapped visualization using Cesium.js and Google's photorealistic 3D tiles. 
+          <br><br>
+        <strong>Viewers of this map will be able to:</strong><br><br>
+         1.View all districts of South Africa along with population data (it's based on 2020 census data).The map is coloured in red with yellow strokes dividing districts and it is based on the population per district - the darker the red colour the more the total population which can be seen by clicking on a district (it's represented as TPopulation). A breakdown of this total population is representated by the sum of FPopulation (Female Population) and MPopulation(Male Population). Click on each district to see the data or </p>
+        <button id="hideButton">Hide district map</button>
+        <button id="showButton">Show it again</button>
+      </table>
+    <br>
+      2. View all the health care facilities and their where they are located on each district.
+      </p>
+      <h5><u><i>Filter below:</i></u></h5>
+    <table class="infoPanel">
+      <label for="dropdown">Only display:</label>
+      <select id="dropdown">
+        <option value="all">Show</option>
+        <option value="all">All facilities</option>
+        <option value="none">None</option>
+       
+         
+      </select>
+  </table>
+
+      <p>Meaning of icons:<br>
+        <img src="images/other.png"/> Other type of health facility
+        <img src="images/district.png"/> District health facility
+        <img src="images/private.png"/> Private health facility
+      </p>
+      3. Fly over to visit some health facilities and see surrounding areas.
+      <button id="flyOverButton">Visit a few main hospitals</button>
+    <br>
+    <BR>
+    4. Geocode a health care facility of interest by using the searching bar. <a href="https://github.com/dsfsi/covid19za/blob/master/data/health_system_za_hospitals_v1.csv" target="blank" style="background-color: aqua;">This</a> list gives names that one can start searching for. 
+    <br>
+    5. <button id="toggleButton">ROUTING -Toggle Cesium Viewer</button>
+
+    <p> Data limitations: This data is based on the census of 2020, more recent data was not available at the time of putting together this project.</p>
+    <a href="#" target="_blank" style="background-color: azure;">Share this project
+    </a><br>
+    <a href="https://forms.gle/c66MNtRDX3yDj2Z78" target="_blank" style="background-color: azure;">Leave Feedback
+    </a>
+    </div>
+  <script type="module">
+
+    const apiKey = "AAPKc9c443856adc445a8329990bc342e7e1aMTGK0YdHsA4Inr87oRwqhl4IlP8dRzKSg3P9o1zlN5El9S5Ld_NiP_VPSOka_iS";
+
+    Cesium.ArcGisMapService.defaultAccessToken = apiKey;
+
+    const authentication = arcgisRest.ApiKeyManager.fromKey(apiKey);
+
+    const cesiumAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIxN2VkYTllYy00YWJjLTQ3Y2MtYjQ1Zi00ODJhOWVhNmZlZmEiLCJpZCI6MTM1MzQwLCJpYXQiOjE2ODIzNDUyMTN9.5n78_bPCqU1YwUJ5dOhSpF61LDI5ssGe5F-rz6z7QR4";
+    Cesium.Ion.defaultAccessToken = cesiumAccessToken;
+
+    const arcGisImagery = Cesium.ArcGisMapServerImageryProvider.fromBasemapType(Cesium.ArcGisBaseMapType.SATELLITE, {
+    enablePickFeatures:false
+    });
+
+    const viewer = new Cesium.Viewer("cesiumContainer", {
+
+        baseLayer: Cesium.ImageryLayer.fromProviderAsync(arcGisImagery),
+
+        terrain: Cesium.Terrain.fromWorldTerrain(),
+        timeline: false,
+        animation: false,
+        geocoder:false
+
+    });
+
+    viewer.camera.setView({
+
+      destination : Cesium.Cartesian3.fromDegrees(8.68019, 50.1147 , 500),
+      orientation : {
+        heading: Cesium.Math.toRadians(-120),
+        pitch : Cesium.Math.toRadians(-28.0),
+      }
+
+    });
+
+    const geoidService = await Cesium.ArcGISTiledElevationTerrainProvider.fromUrl("https://tiles.arcgis.com/tiles/z2tnIkrLQ2BRzr6P/arcgis/rest/services/EGM2008/ImageServer");
+    const i3sProvider = await Cesium.I3SDataProvider.fromUrl("https://tiles.arcgis.com/tiles/cFEFS0EWrhfDeVw9/arcgis/rest/services/Buildings_Frankfurt_2021/SceneServer", {
+        geoidTiledTerrainProvider: geoidService,
+        token: apiKey
+    })
+    viewer.scene.primitives.add(i3sProvider);
+
+    let currentStep = 'start';
+    let startCoords,endCoords;
+
+    const pinBuilder = new Cesium.PinBuilder();
+
+    const startPoint = viewer.entities.add({
+        name:'start',
+        position:null,
+        billboard: {
+            verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+            heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+
+            image: pinBuilder.fromText("1",Cesium.Color.fromCssColorString('#348bdb'),48).toDataURL(),
+
+        }
+    })
+
+    const endPoint = viewer.entities.add({
+        name:'end',
+        position:null,
+        billboard: {
+            verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+            heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+
+            image: pinBuilder.fromText("2",Cesium.Color.fromCssColorString('#348bdb'),48).toDataURL(),
+
+        }
+    })
+
+    function onLeftClick(movement) {
+
+        const pickedPosition = viewer.scene.pickPosition(movement.position);
+
+        const cartographic = Cesium.Cartographic.fromCartesian(pickedPosition);
+        const point = [Cesium.Math.toDegrees(cartographic.longitude),Cesium.Math.toDegrees(cartographic.latitude)]
+
+        if (currentStep === 'start') {
+            startCoords = point;
+            startPoint.position = pickedPosition;
+
+            viewer.dataSources.removeAll();
+            endPoint.position = null;
+            endCoords = null;
+
+            currentStep = 'end';
+        }
+        else {
+            endCoords = point;
+            endPoint.position = pickedPosition;
+            currentStep = 'start';
+        }
+
+        if (startCoords && endCoords) {
+            getRoute(startCoords,endCoords);
+        }
+
+    }
+
+    viewer.screenSpaceEventHandler.setInputAction(onLeftClick,Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+    function getRoute(start,end) {
+
+        arcgisRest
+        .solveRoute({
+            stops: [start,end],
+            authentication
+        })
+
+        .then((response) => {
+            Cesium.GeoJsonDataSource.load(response.routes.geoJson,{
+                    stroke:Cesium.Color.fromCssColorString('#76fcfc'),
+                    strokeWidth:5,
+                    clampToGround:true
+            }).then((data)=>{
+                viewer.dataSources.add(data);
+            });
+
+            const directionsHTML = response.directions[0].features.map((f) => f.attributes.text).join("<br/>");
+
+            const directionsPopup = viewer.entities.add({
+                name:"Directions",
+                description:directionsHTML,
+                position:Cesium.Cartesian3.fromDegrees(0,0),
+            });
+
+            viewer.selectedEntity = directionsPopup;
+
+        })
+
+    }
+
+    startPoint.position = Cesium.Cartesian3.fromDegrees(8.67496,50.10946);
+    endPoint.position = Cesium.Cartesian3.fromDegrees(8.66893,50.11429);
+
+    getRoute([8.67496,50.10946],[8.66893,50.11429])
+
+ 
+  function toggleCesiumViewer() {
+    const cesiumContainer = document.getElementById("cesiumContainer");
+    if (cesiumContainer.style.display === "none") {
+      cesiumContainer.style.display = "block";
+    } else {
+      cesiumContainer.style.display = "none";
+    }
+  }
+
+  // Add a click event listener to the toggle button
+  const toggleButton = document.getElementById("toggleButton");
+  toggleButton.addEventListener("click", toggleCesiumViewer);
+
+  
+    // FEATURE #1 : DISTRICT MAP
+    const geoJsonUrl = "./data/topo.json";
+    let dataSource;
+  
+    async function getCoordinatesFromJSON() {
+      const response = await fetch("./data/data.json");
+      const data = await response.json();
+      return data.features
+        .map((feature) => {
+          const coordinates = feature.geometry?.coordinates;
+          if (
+            coordinates &&
+            Array.isArray(coordinates) &&
+            coordinates.length === 2
+          ) {
+            return { lat: coordinates[1], lon: coordinates[0] };
+          }
+          return null;
+        })
+        .filter((position) => position !== null);
+    }
+  
+    function addGeoJsonDataSourceWithPopulationColor(url) {
+      return Cesium.GeoJsonDataSource.load(url).then(function (loadedDataSource) {
+        dataSource = loadedDataSource;
+        // Access the entities in the data source
+        const entities = dataSource.entities.values;
+  
+        
+        let minPopulation = Number.MAX_VALUE;
+        let maxPopulation = Number.MIN_VALUE;
+        entities.forEach(function (entity) {
+          const population = entity.properties["TPopulation"].getValue(); 
+          if (population < minPopulation) {
+            minPopulation = population;
+          }
+          if (population > maxPopulation) {
+            maxPopulation = population;
+          }
+          return dataSource;
+        });
+  
+       
+        function getPinkColorWithOpacity(opacity) {
+          return new Cesium.Color(1.0, 19 / 255, 20 / 255, opacity);
+        }
+  
+      
+        entities.forEach(function (entity) {
+          const population = entity.properties["TPopulation"].getValue();
+          const populationFraction =
+            (population - minPopulation) / (maxPopulation - minPopulation);
+          const opacity = populationFraction; 
+          const color = getPinkColorWithOpacity(opacity);
+          entity.polygon.material = new Cesium.ColorMaterialProperty(color);
+        });
+  
+        return dataSource;
+      });
+    }
+    function removeGeoJsonDataSource() {
+      if (dataSource) {
+        viewer.dataSources.remove(dataSource);
+      }
+    }
+  
+    function showGeoJsonDataSource() {
+      if (dataSource) {
+        viewer.dataSources.add(dataSource);
+      }
+    }
+  
+  addGeoJsonDataSourceWithPopulationColor(geoJsonUrl)
+  .then(function (dataSource) {
+    viewer.dataSources.add(dataSource);
+    dataSource.entities.values.forEach(function (entity) {
+      entity.polygon.minimumPixelSize = 10; 
+    });
+  })
+  .catch(function (error) {
+    console.error("An error occurred: ", error);
+  });
+  
+    const hideButton = document.getElementById("hideButton");
+    hideButton.addEventListener("click", removeGeoJsonDataSource);
+  
+    const showButton = document.getElementById("showButton");
+    showButton.addEventListener("click", showGeoJsonDataSource);
+  
+  
+  
+    // FEATURE #3 : 3D TILES AND MAPPING
+    viewer.scene.globe.show = true;
+    var flyoverInterval;
+    var isFlying = false;
+    
+    function flyOver() {
+        Cesium.ArcGISTiledElevationTerrainProvider.fromUrl("https://tiles.arcgis.com/tiles/z2tnIkrLQ2BRzr6P/arcgis/rest/services/EGM2008/ImageServer")
+      var flyoverParameters = {
+        currentIndex: 0,
+        duration: 5,
+        rotationDuration: 5,
+        rotateInterval: 100
+      };
+    
+      if (isFlying) {
+        // Flyover is already in progress, do nothing
+        return;
+      }
+    
+      isFlying = true;
+    
+      // Your existing code for flyOver function
+      var cities = [
+        { name: "Johannesburg", latitude: -26.26, longitude: 27.93799 },
+        { name: "Pretoria", latitude: -25.7295, longitude: 28.202561 },
+        { name: "Durban", latitude: -28.6245, longitude: 31.086834 },
+        { name: "Port Elizabeth", latitude: -32.9959, longitude: 27.89156 },
+        { name: "Cape Town", latitude: -33.9408, longitude: 18.465164 }
+      ];
+    
+      function flyOverCities() {
+        if (flyoverParameters.currentIndex < cities.length) {
+          var city = cities[flyoverParameters.currentIndex];
+          var destination = Cesium.Cartesian3.fromDegrees(city.longitude, city.latitude, 1700);
+    
+          viewer.camera.flyTo({
+            destination: destination,
+            duration: flyoverParameters.duration,
+            complete: function () {
+              var startTime = new Date().getTime();
+              var initialHeading = viewer.camera.heading;
+              var rotationStep = Cesium.Math.toRadians(90); // 90-degree rotation step
+    
+              var rotateInterval = setInterval(function () {
+                var elapsedTime = (new Date().getTime() - startTime) / 1000;
+                if (elapsedTime < flyoverParameters.rotationDuration) {
+                  var rotationProgress = elapsedTime / flyoverParameters.rotationDuration;
+                  var newHeading = initialHeading + (rotationStep * rotationProgress);
+                  viewer.camera.setView({
+                    orientation: {
+                      heading: newHeading,
+                      pitch: Cesium.Math.toRadians(-30),
+                      roll: 0
+                    }
+                  });
+                } else {
+                  clearInterval(rotateInterval);
+                  flyoverParameters.currentIndex++;
+                  flyOverCities();
+                }
+              }, flyoverParameters.rotateInterval); // Use the specified interval
+            }
+          });
+        } else {
+          isFlying = false; // Flyover completed
+        }
+      }
+    
+      flyOverCities();
+    }
+    
+    // Function to stop the flyover
+    function stopFlyover() {
+      clearInterval(flyoverInterval);
+      isFlying = false;
+    }
+    
+    // Function to resume the flyover
+    function resumeFlyover() {
+      if (!isFlying) {
+        flyOver(); // Resume from the current city
+      }
+    }
+    
+    const flyOverButton = document.getElementById("flyOverButton");
+    const stopButton = document.getElementById("stopButton");
+    const resumeButton = document.getElementById("resumeButton");
+    
+    flyOverButton.addEventListener("click", flyOver);
+    stopButton.addEventListener("click", stopFlyover);
+    resumeButton.addEventListener("click", resumeFlyover);
+
+  
+    // FEATURE #5 : GEOCODING STUFF
+  if (typeof Cesium !== "undefined") {
+    window.startupCalled = true;
+    window.startup(Cesium).catch((error) => {
+      "use strict";
+      console.error(error);
+    });
+  }
+  
+  function OpenStreetMapNominatimGeocoder() {}
+  
+  /**
+   * The function called to geocode using this geocoder service.
+   *
+   * @param {string} input The query to be sent to the geocoder service
+   * @returns {Promise<GeocoderService.Result[]>}
+   */
+  OpenStreetMapNominatimGeocoder.prototype.geocode = function (input) {
+    const endpoint = "https://nominatim.openstreetmap.org/search";
+    const resource = new Cesium.Resource({
+      url: endpoint,
+      queryParameters: {
+        format: "json",
+        q: input,
+      },
+    });
+  
+    return resource.fetchJson().then(function (results) {
+      let bboxDegrees;
+      return results.map(function (resultObject) {
+        bboxDegrees = resultObject.boundingbox;
+        return {
+          displayName: resultObject.display_name,
+          destination: Cesium.Rectangle.fromDegrees(
+            bboxDegrees[2],
+            bboxDegrees[0],
+            bboxDegrees[3],
+            bboxDegrees[1]
+          ),
+        };
+      });
+    });
+  }
+  </script>
+</body>
+
+</html>

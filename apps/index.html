@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Use correct character set. -->
+    <meta charset="utf-8" />
+    <!-- Tell IE to use the latest, best version. -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- Make the application on mobile take up the full browser screen and disable user scaling. -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no"
+    />
+    <title>South Africa</title>
+    <script src="https://cdn.lordicon.com/bhenfmcm.js"></script>
+    <script src="../Build/CesiumUnminified/Cesium.js"></script>
+    <link href="tour/dist/pageintro.css" rel="stylesheet">
+    <script src="https://unpkg.com/@esri/arcgis-rest-request@4.0.0/dist/bundled/request.umd.js"></script>
+    <script src="https://unpkg.com/@esri/arcgis-rest-routing@4.0.0/dist/bundled/routing.umd.js"></script>
+    <style>
+      @import url(../Build/CesiumUnminified/Widgets/widgets.css);
+      @import url(./Sandcastle/templates/bucket.css);
+      #toolbar {
+        padding: 4px;
+        background-color: rgb(100, 100, 197);
+        width: 60%;
+      }
+      #toolbar input {
+        vertical-align: middle;
+        padding-top: 2px;
+        padding-bottom: 2px;
+      }
+      html {
+      zoom: 60%; /* Set the zoom level to 60% */
+    }
+      body,
+      #cesiumContainer {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+      }
+      a {
+        background-color: #3f10bf;
+        color: rgb(255, 255, 255);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="cesiumContainer" class="fullSize"></div>
+    <div id="loadingOverlay"><h1>Loading...</h1></div>
+    <button  onclick="myFunction()"  id="step2">
+    <lord-icon 
+    src="https://cdn.lordicon.com/albqovim.json"
+    trigger="loop"
+    delay="2000"
+    colors="primary:#ee66aa"
+    style="width:30px;height:30px"></lord-icon>
+ </button>
+
+    <div id="toolbar" style="width: 40%;">
+        <h1 >Visualisation: Healthcare facilities in South Africa </h1>
+        <strong><u>About this project:</u></strong>
+        <p>The goal is to transform <a href="https://dsfsi.github.io/healthfacilitymap/" target="blank">health facilities'</a> data visualized using Google maps API - into a 3D mapped visualisation using Cesium.js, ArcGIS routing services and Google's photorealistic 3D tiles. 
+          <br><br>
+        <strong>Viewers of this map will be able to:</strong><br><br>
+
+        <p id="step3" >  1. See district Population map- View all districts of South Africa along with population data (it's based on 2020 census data).
+          The map is coloured in blue with yellow strokes dividing districts based on population data per district.
+           The darker the colour the bigger is the total population which can be seen by clicking on a district (it's represented as TPopulation). <br>
+          <button id="hideButton">Hide district map</button>
+          <button id="showButton">Show it again</button>
+        </p>
+
+
+          <p id="step4"> 2. See health care facilities and where they are located on each district
+            <table class="infoPanel">
+              <label for="dropdown">Only display:</label>
+              <select id="dropdown">
+                <option value="all">Show</option>
+                <option value="all">All facilities</option>
+                <option value="none">None</option>
+              </select>
+          </table>
+          <br>
+              Meaning of icons:<br>
+                <img src="images/other.png"/> Other type of health facility
+                <img src="images/district.png"/> District health facility
+                <img src="images/private.png"/> Private health facility
+              </p>
+
+            
+        <p  id="step5"> 3. Fly over (in 3D) to visit hospitals with most beds and see surrounding areas.<br>
+          <button id="flyOverButton">Start Flyover</button>
+          <button id="stopButton">Stop Flyover</button>
+          <button id="resumeButton">Resume Flyover</button></p>
+
+          <p id="step6"> 3. See healthcare facilities with 5, 10 and 15 minutes driving areas. Note that when you use this feature, you will not be able to click and view details of facilities - you can only be able to click at a location point and see facilites accessible.
+              <br>   <!-- Add a button with an ID for JavaScript to target -->
+              <button onclick="performServiceAreaAnalysis()">Facilies within reach</button> </p>
+
+ 
+   
+ 
+      <p id="step7">5. Geocode a health care facility</u></strong> of interest by using the searching bar at the top left.     <br><a href="https://github.com/dsfsi/covid19za/blob/master/data/health_system_za_hospitals_v1.csv" target="blank" style="background-color: aqua;">This</a> list gives names that one can start searching for. </p> 
+
+  
+    <p id="step9"> Data limitations: This data is based on the census of 2020, more recent data was not available at the time of putting together this project.
+    <br><a href="#" target="_blank">Share this project
+    </a><br>
+    <a href="https://forms.gle/c66MNtRDX3yDj2Z78" target="_blank">Leave Feedback
+    </a><br>
+    <a href="https://github.com/elolelo" target="_blank">About the developer</a>
+  </p>
+  <p  id="step10"></p>
+    </div>
+
+    <div id="cityName" style="background-color: black;color: aliceblue;position: fixed;align-items: center;"></div>
+
+  <script src="./script.js"></script>
+  <script src="https://code.jquery.com/jquery.min.js"></script>
+  <script src="tour/dist/pageintro.js"></script>
+  <script>
+     function myFunction() {
+        var x = document.getElementById("toolbar");
+        if (x.style.display === "none") {
+          x.style.display = "block";
+        } else {
+          x.style.display = "none";
+        }
+      }
+
+      var options = {
+      container: 'body',
+      spacing: 20,
+      colour:'black',
+      actions: {
+        next: {
+          text: 'OK, what is next?',
+          class: 'btn btn-default'
+        },
+        finish: {
+          text: 'OK! Now I know',
+          class: 'btn btn-success'
+        }
+      },
+      entries: [
+        {
+          selector: '#step1',
+          text: 'WELCOME! This project is about 3D visualisation of healthcare facilities in South Africa'
+        }, {
+          selector: '#step2',
+          text: 'This pink icon shows information about this project. After this tutorial, you can click on it to hide or show the information.'
+        }, 
+        
+        {
+          selector: '#step3',
+          text: 'In this map, you can be able to see population of each district overlayed in the 3D globe.You can hide or show it using buttons below. A total population per district is representated by the sum of FPopulation (Female Population) and MPopulation(Male Population). Click on each district to see the data.'
+        }, 
+        {
+          selector: '#step4',
+          text: 'Using the dropdown selector box, you can choose to see or hide the health care facilites. Click on each facility to see more details about it.These different icons are explained below on which health care facility types they represent.'
+        }, 
+        {
+          selector: '#step5',
+          text: 'In this map, you can use the 3D fly over feature to get glimpse of relatively better resourced hospitals. About 9 hospitals have over 900 useable beds each and you can get a sense of their surrounding areas.'
+        }, 
+       
+        {
+          selector: '#step6',
+          text: 'You can also use client API from ArcGIS to get a sense of service accessibility for route planning. This feature is great for getting estimates on how you can get from one location to a specific health care facility within 5, 10 or 15 minutes drive around the area.'
+        }, 
+       
+        {
+          selector: '#step7',
+          text: 'The geocoding feature allows you to search for a specific health care facility. The linked list attached has all the names that you can find by geocode search.'
+        }, 
+        {
+          selector: '#step9',
+          text: 'As you use explore this mapping web app, be aware of that data limitations and your feedback is very welcomed.'
+        }, 
+        
+        {
+          selector: '#step10',
+          text: 'Congratulations for finishing the guide, you can now explore! Do not forget to hide the information toolbar.',
+          onEnter: function () {
+            $('#step10').text('Thank you!');
+          },
+          onExit: function () {
+            $('#step10').text('Is all okay?');
+          }
+        }
+      ]
+};
+
+PageIntro.init(options);
+PageIntro.start();
+      
+     
+  </script>
+  </body>
+</html>
+
+
+  
+
+ 
+
